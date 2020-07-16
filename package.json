@@ -1,0 +1,26 @@
+{
+  "name": "EmployeeTracker",
+  "version": "1.0.0",
+  "description": "A CMS to manage a company's employees using node, inquirer, and MySQL.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/derek-watson14/EmployeeTracker.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/derek-watson14/EmployeeTracker/issues"
+  },
+  "homepage": "https://github.com/derek-watson14/EmployeeTracker#readme",
+  "dependencies": {
+    "console.table": "^0.10.0",
+    "inquirer": "^7.3.2",
+    "mysql": "^2.18.1"
+  }
+}
