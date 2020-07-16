@@ -26,12 +26,8 @@ const validateNumber = async (input) => {
   }
 };
 
-function viewAllEntries(table) {
-  connection.query(`SELECT * FROM ${table}`, function (err, results) {
-    if (err) throw err;
-    console.table(results);
-    mainMenu();
-  });
+async function getAllEntries(table) {
+  return await query(`SELECT * FROM ${table}`);
 }
 
 async function addDepartment() {
@@ -49,46 +45,45 @@ async function addDepartment() {
 }
 
 function addRole() {
-  connection.query(`SELECT * FROM departments`, async function (err, results) {
-    if (err) throw err;
-    var departments = results.map((dept) => `${dept.id}. ${dept.name}`);
-    const { title, salary, department } = await inquirer.prompt([
-      {
-        name: "title",
-        type: "input",
-        message: "Title:",
-      },
-      {
-        name: "salary",
-        type: "input",
-        message: "Salary:",
-        validate: validateNumber,
-      },
-      {
-        name: "department",
-        type: "list",
-        message: "Choose department:",
-        choices: departments,
-      },
-    ]);
-    const department_id = department.split(".")[0];
+  let departments = getAllEntries("departments");
+  departments = departments.map((dept) => `${dept.id}. ${dept.name}`);
+  const { title, salary, department } = await inquirer.prompt([
+    {
+      name: "title",
+      type: "input",
+      message: "Title:",
+    },
+    {
+      name: "salary",
+      type: "input",
+      message: "Salary:",
+      validate: validateNumber,
+    },
+    {
+      name: "department",
+      type: "list",
+      message: "Choose department:",
+      choices: departments,
+    },
+  ]);
+  const department_id = department.split(".")[0];
 
-    connection.query(
-      `INSERT INTO roles SET ?`,
-      { title, salary, department_id },
-      function (err) {
-        if (err) throw err;
-        console.log("Added role successfully!");
-        mainMenu();
-      }
-    );
-  });
+  connection.query(
+    `INSERT INTO roles SET ?`,
+    { title, salary, department_id },
+    function (err) {
+      if (err) throw err;
+      console.log("Added role successfully!");
+      mainMenu();
+    }
+  );
 }
 
 async function addEmployee() {
-  let roles = await query(`SELECT * FROM roles`);
+  let roles = await getAllEntries("roles");
+  let employees = await getAllEntries("employees");
+
   roles = roles.map((role) => `${role.id}. ${role.title}`);
-  let employees = await query(`SELECT * FROM employees`);
   employees = employees.map((e) => `${e.id}. ${e.first_name} ${e.first_name}`);
   employees.unshift("0. None");
 
@@ -133,13 +128,16 @@ async function addEmployee() {
 async function parseChoice(choice) {
   switch (choice) {
     case "View all departments":
-      viewAllEntries("departments");
+      console.table(await getAllEntries("departments"));
+      mainMenu();
       break;
     case "View all roles":
-      viewAllEntries("roles");
+      console.table(await getAllEntries("roles"));
+      mainMenu();
       break;
     case "View all employees":
-      viewAllEntries("employees");
+      console.table(await getAllEntries("employees"));
+      mainMenu();
       break;
     case "Add department":
       addDepartment();
