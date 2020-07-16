@@ -37,16 +37,11 @@ async function addDepartment() {
     message: "Department name:",
   });
 
-  connection.query(`INSERT INTO departments SET ?`, { name }, function (err) {
-    if (err) throw err;
-    console.log("Added role successfully!");
-    mainMenu();
-  });
+  await query(`INSERT INTO departments SET ?`, { name });
 }
 
-function addRole() {
-  let departments = getAllEntries("departments");
-  departments = departments.map((dept) => `${dept.id}. ${dept.name}`);
+async function addRole() {
+  let departments = await getAllEntries("departments");
   const { title, salary, department } = await inquirer.prompt([
     {
       name: "title",
@@ -63,29 +58,20 @@ function addRole() {
       name: "department",
       type: "list",
       message: "Choose department:",
-      choices: departments,
+      choices: departments.map((dept) => dept.name),
     },
   ]);
-  const department_id = department.split(".")[0];
 
-  connection.query(
-    `INSERT INTO roles SET ?`,
-    { title, salary, department_id },
-    function (err) {
-      if (err) throw err;
-      console.log("Added role successfully!");
-      mainMenu();
-    }
-  );
+  const department_id = departments.filter((d) => d.name === department)[0].id;
+
+  await query(`INSERT INTO roles SET ?`, { title, salary, department_id });
 }
 
 async function addEmployee() {
-  let roles = await getAllEntries("roles");
-  let employees = await getAllEntries("employees");
-
-  roles = roles.map((role) => `${role.id}. ${role.title}`);
-  employees = employees.map((e) => `${e.id}. ${e.first_name} ${e.first_name}`);
-  employees.unshift("0. None");
+  const roles = await getAllEntries("roles");
+  const employees = await getAllEntries("employees");
+  const employeeList = employees.map((e) => `${e.first_name} ${e.last_name}`);
+  employeeList.unshift("None");
 
   const { first_name, last_name, role, manager } = await inquirer.prompt([
     {
@@ -102,26 +88,64 @@ async function addEmployee() {
       name: "role",
       type: "list",
       message: "Role:",
-      choices: roles,
+      choices: roles.map((role) => role.title),
     },
     {
       name: "manager",
       type: "list",
       message: "Choose manager:",
-      choices: employees,
+      choices: employeeList,
     },
   ]);
-  const role_id = role.split(".")[0];
-  const manager_id = manager === "0. None" ? null : manager.split(".")[0];
-
-  connection.query(
-    `INSERT INTO employees SET ?`,
-    { first_name, last_name, role_id, manager_id },
-    function (err) {
-      if (err) throw err;
-      console.log("Added employee successfully!");
-      mainMenu();
+  const role_id = roles.filter((r) => r.title === role)[0].id;
+  const getManagerId = () => {
+    if (manager === "None") {
+      return null;
+    } else {
+      return employees.filter((e) => {
+        return e.first_name, e.last_name === manager;
+      })[0].id;
     }
+  };
+  const manager_id = getManagerId();
+
+  await query(`INSERT INTO employees SET ?`, {
+    first_name,
+    last_name,
+    role_id,
+    manager_id,
+  });
+}
+
+async function updateEmployeeRole() {
+  const roles = await getAllEntries("roles");
+  const employees = await getAllEntries("employees");
+
+  const roleList = roles.map((role) => role.title);
+  const employeeList = employees.map((e) => `${e.first_name} ${e.last_name}`);
+
+  const { employee, role } = await inquirer.prompt([
+    {
+      name: "employee",
+      type: "list",
+      message: "Choose employee:",
+      choices: employeeList,
+    },
+    {
+      name: "role",
+      type: "list",
+      message: "Choose new role:",
+      choices: roleList,
+    },
+  ]);
+
+  const role_id = roles.filter((r) => r.title === role)[0].id;
+  const employee_id = employees.filter((e) => {
+    return `${e.first_name} ${e.last_name}` === employee;
+  })[0].id;
+
+  await query(
+    `UPDATE employees SET role_id = ${role_id} WHERE id = ${employee_id}`
   );
 }
 
@@ -140,16 +164,20 @@ async function parseChoice(choice) {
       mainMenu();
       break;
     case "Add department":
-      addDepartment();
+      await addDepartment();
+      mainMenu();
       break;
     case "Add role":
-      addRole();
+      await addRole();
+      mainMenu();
       break;
     case "Add employee":
-      addEmployee();
+      await addEmployee();
+      mainMenu();
       break;
     case "Update employee role":
-      console.log("7");
+      await updateEmployeeRole();
+      mainMenu();
       break;
     default:
       console.log("Bye Bye!");
