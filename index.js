@@ -173,12 +173,8 @@ async function updateEmployeeRole() {
 }
 
 async function removeDepartment() {
-  console.log(
-    "NOTE: This action will also remove all department roles and employees!"
-  );
   const departments = await getAllEntries("departments");
   const departmentNames = departments.map((dept) => dept.name);
-  departmentNames.unshift("Cancel");
 
   const { department } = await inquirer.prompt({
     name: "department",
@@ -187,7 +183,14 @@ async function removeDepartment() {
     choices: departmentNames,
   });
 
-  if (department === "Cancel") {
+  const { confirmed } = await inquirer.prompt({
+    name: "confirmed",
+    type: "confirm",
+    message:
+      "This action will also remove all department roles and employees. Proceed?",
+  });
+
+  if (!confirmed) {
     console.log("Deletion cancelled");
   } else {
     const department_id = departments.filter((d) => d.name === department)[0]
@@ -203,7 +206,69 @@ async function removeDepartment() {
       DELETE FROM roles WHERE department_id = ${department_id};
       DELETE FROM employees WHERE role_id IN ${roleList};
     `);
-    console.log("Department deleted");
+    console.log("Department removed");
+  }
+}
+
+async function removeRole() {
+  const roles = await getAllEntries("roles");
+  const roleTitles = roles.map((role) => role.title);
+
+  const { role } = await inquirer.prompt({
+    name: "role",
+    type: "list",
+    message: "Choose role to delete:",
+    choices: roleTitles,
+  });
+
+  const { confirmed } = await inquirer.prompt({
+    name: "confirmed",
+    type: "confirm",
+    message:
+      "This action will also remove all employees with this role. Proceed?",
+  });
+
+  if (!confirmed) {
+    console.log("Deletion cancelled");
+  } else {
+    const role_id = roles.filter((r) => r.title === role)[0].id;
+
+    await query(`
+      DELETE FROM roles WHERE id = ${role_id};
+      DELETE FROM employees WHERE role_id = ${role_id};
+    `);
+    console.log("Role removed");
+  }
+}
+
+async function removeEmployee() {
+  const employees = await getAllEntries("employees");
+  const employeeNames = employees.map((e) => `${e.first_name} ${e.last_name}`);
+
+  const { emp } = await inquirer.prompt({
+    name: "emp",
+    type: "list",
+    message: "Choose employee to delete:",
+    choices: employeeNames,
+  });
+
+  const { confirmed } = await inquirer.prompt({
+    name: "confirmed",
+    type: "confirm",
+    message: `This action will permenantly remove ${emp} from the database. Proceed?`,
+  });
+
+  if (!confirmed) {
+    console.log("Deletion cancelled");
+  } else {
+    const emp_id = employees.filter((e) => {
+      return emp === `${e.first_name} ${e.last_name}`;
+    })[0].id;
+
+    await query(`
+      DELETE FROM employees WHERE id = ${emp_id};
+    `);
+    console.log("Employee removed");
   }
 }
 
@@ -241,8 +306,16 @@ async function parseChoice(choice) {
       await removeDepartment();
       mainMenu();
       break;
+    case "Remove role":
+      await removeRole();
+      mainMenu();
+      break;
+    case "Remove employee":
+      await removeEmployee();
+      mainMenu();
+      break;
     default:
-      console.log("Bye Bye!");
+      console.log("Auf Wiedersehen!");
       connection.end();
   }
 }
@@ -261,6 +334,8 @@ async function mainMenu() {
       "Add employee",
       "Update employee role",
       "Remove department",
+      "Remove role",
+      "Remove employee",
       "Quit",
     ],
   });
