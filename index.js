@@ -9,6 +9,7 @@ var connection = mysql.createConnection({
   user: "root",
   password: "password",
   database: "employee_trackerDB",
+  multipleStatements: true,
 });
 
 connection.connect(function (err) {
@@ -30,6 +31,22 @@ async function getAllEntries(table) {
   return await query(`SELECT * FROM ${table}`);
 }
 
+async function getAllRoles() {
+  return await query(`
+    SELECT roles.id, roles.title, roles.salary, departments.name AS department
+    FROM roles INNER JOIN departments
+    ON roles.department_id = departments.id;
+  `);
+}
+
+async function getAllEmployees() {
+  return await query(`
+    SELECT employees.id, employees.first_name, employees.last_name, roles.salary, roles.title
+    FROM employees INNER JOIN roles 
+    ON employees.role_id = roles.id;  
+  `);
+}
+
 async function addDepartment() {
   const { name } = await inquirer.prompt({
     name: "name",
@@ -38,6 +55,7 @@ async function addDepartment() {
   });
 
   await query(`INSERT INTO departments SET ?`, { name });
+  console.log("Department Added");
 }
 
 async function addRole() {
@@ -65,11 +83,14 @@ async function addRole() {
   const department_id = departments.filter((d) => d.name === department)[0].id;
 
   await query(`INSERT INTO roles SET ?`, { title, salary, department_id });
+  console.log("Role Added");
 }
 
 async function addEmployee() {
   const roles = await getAllEntries("roles");
   const employees = await getAllEntries("employees");
+
+  const roleList = roles.map((role) => role.title);
   const employeeList = employees.map((e) => `${e.first_name} ${e.last_name}`);
   employeeList.unshift("None");
 
@@ -88,7 +109,7 @@ async function addEmployee() {
       name: "role",
       type: "list",
       message: "Role:",
-      choices: roles.map((role) => role.title),
+      choices: roleList,
     },
     {
       name: "manager",
@@ -115,6 +136,7 @@ async function addEmployee() {
     role_id,
     manager_id,
   });
+  console.log("Employee Added");
 }
 
 async function updateEmployeeRole() {
@@ -147,6 +169,42 @@ async function updateEmployeeRole() {
   await query(
     `UPDATE employees SET role_id = ${role_id} WHERE id = ${employee_id}`
   );
+  console.log("Employee Updated");
+}
+
+async function removeDepartment() {
+  console.log(
+    "NOTE: This action will also remove all department roles and employees!"
+  );
+  const departments = await getAllEntries("departments");
+  const departmentNames = departments.map((dept) => dept.name);
+  departmentNames.unshift("Cancel");
+
+  const { department } = await inquirer.prompt({
+    name: "department",
+    type: "list",
+    message: "Choose department to delete:",
+    choices: departmentNames,
+  });
+
+  if (department === "Cancel") {
+    console.log("Deletion cancelled");
+  } else {
+    const department_id = departments.filter((d) => d.name === department)[0]
+      .id;
+
+    const deptRoles = await query(
+      `SELECT id FROM roles where department_id = ${department_id}`
+    );
+    const roleList = "(" + deptRoles.map((i) => i.id).join(", ") + ")";
+
+    await query(`
+      DELETE FROM departments WHERE id = ${department_id};
+      DELETE FROM roles WHERE department_id = ${department_id};
+      DELETE FROM employees WHERE role_id IN ${roleList};
+    `);
+    console.log("Department deleted");
+  }
 }
 
 async function parseChoice(choice) {
@@ -156,11 +214,11 @@ async function parseChoice(choice) {
       mainMenu();
       break;
     case "View all roles":
-      console.table(await getAllEntries("roles"));
+      console.table(await getAllRoles());
       mainMenu();
       break;
     case "View all employees":
-      console.table(await getAllEntries("employees"));
+      console.table(await getAllEmployees());
       mainMenu();
       break;
     case "Add department":
@@ -177,6 +235,10 @@ async function parseChoice(choice) {
       break;
     case "Update employee role":
       await updateEmployeeRole();
+      mainMenu();
+      break;
+    case "Remove department":
+      await removeDepartment();
       mainMenu();
       break;
     default:
@@ -198,9 +260,9 @@ async function mainMenu() {
       "Add role",
       "Add employee",
       "Update employee role",
+      "Remove department",
       "Quit",
     ],
   });
   parseChoice(choice);
-  return;
 }
